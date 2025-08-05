@@ -1,0 +1,198 @@
+# Configurações de Ambiente para o Sistema RAG Avançado
+
+# Credenciais do Hugging Face Hub (necessário para alguns modelos)
+HUGGINGFACE_API_KEY=seu_token_aqui
+
+# Configurações do Sistema RAG
+MAX_ITERATIONS=2          # Número máximo de iterações no sistema de recuperação iterativa
+DEBUG_MODE=False          # Ativar modo de depuração por padrão
+
+# Configurações de Modelos (opcionais - valores padrão são usados se ausentes)
+LLM_MODEL=microsoft/phi-3-mini-4k-instruct   # Modelo principal para geração
+EMBEDDING_MODEL=sentence-transformers/all-mpnet-base-v2   # Modelo para embeddings
+RERANKER_MODEL=cross-encoder/ms-marco-MiniLM-L-6-v2      # Modelo para re-ranking
+
+# Configurações de Processamento de Documentos
+CHUNK_SIZE=1000           # Tamanho dos chunks para divisão de documentos
+CHUNK_OVERLAP=200         # Sobreposição entre chunks
+INITIAL_RETRIEVAL_K=10    # Número inicial de documentos a recuperar antes do re-ranking
+FINAL_RESULTS_K=6         # Número final de documentos após re-ranking
+
+# Configurações do LLM
+TEMPERATURE=0.3           # Temperatura para geração (0.0-1.0)
+MAX_NEW_TOKENS=1024       # Número máximo de tokens a gerar na resposta
+
+
+
+# Guia de Instalação e Configuração - RAG Avançado
+
+Este guia explica como configurar e executar o Sistema RAG Avançado com Query Expansion, Re-ranking e Iterative Retrieval.
+
+## Requisitos
+
+- Python 3.10 ou superior
+- UV como gerenciador de pacotes
+
+## Instalação das Dependências
+
+### 1. Dependências Principais
+
+Utilize o UV para instalar as dependências necessárias:
+
+```bash
+# Atualizar as dependências existentes do seu projeto
+uv pip install -e .
+
+# Adicionar dependências específicas para o RAG Avançado
+uv add streamlit
+uv add transformers
+uv add "sentence-transformers>=2.2.2"
+uv add "torch>=2.0.0"
+uv add "bitsandbytes>=0.39.0"
+uv add "accelerate>=0.20.0"
+uv add rank-bm25
+```
+
+### 2. Estrutura de Arquivos
+
+Crie os seguintes arquivos na raiz do seu projeto:
+
+- `app.py` - O código principal da aplicação
+- `style.css` - Estilos personalizados para a interface
+- `.env` - Variáveis de ambiente (criar a partir do modelo abaixo)
+
+### 3. Configuração do Arquivo .env
+
+Crie um arquivo `.env` com as seguintes variáveis:
+
+```
+# HuggingFace Hub Access (opcional, mas recomendado para modelos com restrições)
+HUGGINGFACE_API_KEY=hf_your_key_here
+
+# Configurações do aplicativo (opcionais - valores padrão são usados se ausentes)
+MAX_ITERATIONS=2
+DEBUG_MODE=False
+```
+
+## Executando o Aplicativo
+
+Para iniciar o aplicativo:
+
+```bash
+streamlit run app.py
+```
+
+O aplicativo estará disponível em http://localhost:8501 por padrão.
+
+## Detalhes de Implementação
+
+### Modelos Utilizados
+
+O sistema usa os seguintes modelos do Hugging Face:
+
+1. **Modelo LLM Principal**: `microsoft/phi-3-mini-4k-instruct`
+   - Contexto de 4k tokens
+   - Quantizado em 4 bits para eficiência
+
+2. **Modelo de Embeddings**: `sentence-transformers/all-mpnet-base-v2`
+   - Alta qualidade para representação semântica
+   - Dimensionalidade de 768
+
+3. **Modelo Re-ranker**: `cross-encoder/ms-marco-MiniLM-L-6-v2`
+   - Alta precisão para re-ranking de documentos
+   - Otimizado para consultas de recuperação de informações
+
+### Técnicas RAG Avançadas Implementadas
+
+1. **Query Expansion**
+   - Enriquece a consulta do usuário com sinônimos e termos relacionados
+   - Utiliza o LLM para gerar expansões contextualmente relevantes
+   - Considera o histórico de chat para expansões mais coerentes
+
+2. **Re-ranking Preciso**
+   - Aplica um modelo cross-encoder para re-classificar os resultados
+   - Avalia pares (query, documento) em vez de representações separadas
+   - Prioriza documentos com maior relevância semântica para a consulta
+
+3. **Recuperação Iterativa**
+   - Analisa a qualidade dos resultados iniciais
+   - Refina automaticamente a consulta quando necessário
+   - Mantém os melhores resultados ao longo das iterações
+   - Limita o número de iterações para equilibrar precisão e latência
+
+4. **Avaliação Contínua**
+   - Monitora métricas de qualidade e tempo de processamento
+   - Fornece insights sobre o processo de recuperação em modo de depuração
+   - Rastreia histórico de refinamentos para análise
+
+## Personalização
+
+### Modelo LLM
+
+Para alterar o modelo LLM, modifique a variável `model_id` na função `setup_llm()`:
+
+```python
+# Exemplos de alternativas:
+model_id = "mistralai/Mixtral-8x7B-Instruct-v0.1"  # Maior e mais poderoso
+model_id = "HuggingFaceH4/zephyr-7b-beta"  # Boa relação custo-benefício
+model_id = "google/gemma-7b-it"  # Bom para sistemas com menos de 24GB de VRAM
+```
+
+### Parâmetros de Recuperação
+
+Para ajustar o comportamento de recuperação, modifique:
+
+1. **Tamanho do Chunk**: Altere os valores em `DocumentProcessor.__init__`:
+   ```python
+   self.chunk_size = 1000  # Aumente para documentos mais técnicos
+   self.chunk_overlap = 200  # Aumente para melhor coesão entre chunks
+   ```
+
+2. **Número de Documentos**: Modifique o valor de `k` nos retrievers:
+   ```python
+   vector_retriever = vectorstore.as_retriever(search_kwargs={"k": 10})
+   bm25_retriever.k = 10
+   ```
+
+3. **Número de Iterações**: Altere o valor em `IterativeRAG.__init__`:
+   ```python
+   self.max_iterations = 2  # Aumente para consultas mais complexas
+   ```
+
+## Sugestões de Hardware
+
+- **Mínimo**: 16GB RAM, GPU com 8GB VRAM
+- **Recomendado**: 32GB RAM, GPU com 16GB+ VRAM
+- **Ideal**: 64GB RAM, GPU com 24GB+ VRAM ou acesso a múltiplas GPUs
+
+O sistema usa quantização de 4 bits para reduzir os requisitos de memória, mas modelos maiores ainda podem exigir hardware mais potente.
+
+## Solução de Problemas
+
+### Erros de CUDA e GPU
+
+Se você encontrar erros relacionados à CUDA:
+
+1. Verifique se os drivers CUDA estão atualizados
+2. Reduza o tamanho do modelo (`model_id`)
+3. Ajuste as configurações de quantização:
+   ```python
+   quantization_config = BitsAndBytesConfig(
+       load_in_4bit=True,  # Mude para load_in_8bit=True para menor precisão mas menor uso de memória
+       bnb_4bit_compute_dtype=torch.float16,
+       bnb_4bit_quant_type="nf4",
+       bnb_4bit_use_double_quant=True
+   )
+   ```
+
+### Erro "Out of Memory"
+
+1. Reduza `chunk_size` e `k` nos retrievers
+2. Use um modelo menor (como `phi-3-mini` em vez de modelos maiores)
+3. Reduza `max_new_tokens` no pipeline de geração
+
+### Lentidão no Processamento
+
+1. Reduza `max_iterations` para 1
+2. Diminua `k` nos retrievers
+3. Desative o modo de depuração (menos logging)
